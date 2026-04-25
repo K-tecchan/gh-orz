@@ -8,12 +8,12 @@ import (
 )
 
 // RootDir resolves the root directory for cloning repos.
-// Priority: ghq.root > gh-orz.root > ~/ghq
+// Priority: gh-orz.root > ghq.root > ~/gh-orz
 func RootDir() (string, error) {
-	if root := gitConfigGet("ghq.root"); root != "" {
+	if root := gitConfigGet("gh-orz.root"); root != "" {
 		return absPath(root)
 	}
-	if root := gitConfigGet("gh-orz.root"); root != "" {
+	if root := gitConfigGet("ghq.root"); root != "" {
 		return absPath(root)
 	}
 
@@ -21,7 +21,7 @@ func RootDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, "ghq"), nil
+	return filepath.Join(home, "gh-orz"), nil
 }
 
 func gitConfigGet(key string) string {

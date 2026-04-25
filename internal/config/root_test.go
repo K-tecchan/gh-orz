@@ -58,16 +58,7 @@ func TestRootDir_Default(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// If ghq.root is set in the tester's environment, accept that too
-	ghqRoot := gitConfigGet("ghq.root")
-	if ghqRoot != "" {
-		expected, _ := absPath(ghqRoot)
-		if root != expected {
-			t.Errorf("RootDir() = %q, want %q (from ghq.root)", root, expected)
-		}
-		return
-	}
-
+	// If gh-orz.root is set in the tester's environment, accept that too
 	ghOrzRoot := gitConfigGet("gh-orz.root")
 	if ghOrzRoot != "" {
 		expected, _ := absPath(ghOrzRoot)
@@ -77,7 +68,16 @@ func TestRootDir_Default(t *testing.T) {
 		return
 	}
 
-	want := filepath.Join(home, "ghq")
+	ghqRoot := gitConfigGet("ghq.root")
+	if ghqRoot != "" {
+		expected, _ := absPath(ghqRoot)
+		if root != expected {
+			t.Errorf("RootDir() = %q, want %q (from ghq.root)", root, expected)
+		}
+		return
+	}
+
+	want := filepath.Join(home, "gh-orz")
 	if root != want {
 		t.Errorf("RootDir() = %q, want %q", root, want)
 	}
