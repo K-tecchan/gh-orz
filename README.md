@@ -12,7 +12,7 @@ Repositories are organized in a [ghq](https://github.com/x-motemen/ghq)-compatib
 ## Installation
 
 ```sh
-gh extension install K-tecchan/gh-orz
+gh extension install https://github.com/K-tecchan/gh-orz
 ```
 
 ## Commands
