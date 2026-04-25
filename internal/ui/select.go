@@ -7,24 +7,32 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-const headerLines = 2 // header + blank line
+const fixedLines = 2 // header + filter/blank line
 const minVisible = 5
 
 type multiSelectModel struct {
-	choices  []string
-	cursor   int
-	offset   int // scroll offset
-	height   int // visible area height (items)
-	selected map[int]bool
-	done     bool
-	canceled bool
+	choices    []string
+	filtered   []int // indices into choices matching the filter
+	cursor     int   // index into filtered
+	offset     int   // scroll offset
+	termHeight int   // terminal height
+	selected   map[int]bool
+	filtering  bool
+	filter     string
+	done       bool
+	canceled   bool
 }
 
 func newMultiSelectModel(choices []string) multiSelectModel {
+	filtered := make([]int, len(choices))
+	for i := range choices {
+		filtered[i] = i
+	}
 	return multiSelectModel{
-		choices:  choices,
-		selected: make(map[int]bool),
-		height:   len(choices), // will be adjusted on first WindowSizeMsg
+		choices:    choices,
+		filtered:   filtered,
+		selected:   make(map[int]bool),
+		termHeight: minVisible + fixedLines,
 	}
 }
 
@@ -35,84 +43,167 @@ func (m multiSelectModel) Init() tea.Cmd {
 func (m multiSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		available := msg.Height - headerLines
-		if available < minVisible {
-			available = minVisible
-		}
-		if available > len(m.choices) {
-			available = len(m.choices)
-		}
-		m.height = available
+		m.termHeight = msg.Height
 		m.adjustScroll()
 
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c", "esc":
-			m.canceled = true
-			return m, tea.Quit
-		case "enter":
-			m.done = true
-			return m, tea.Quit
-		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
-				m.adjustScroll()
-			}
-		case "down", "j":
-			if m.cursor < len(m.choices)-1 {
-				m.cursor++
-				m.adjustScroll()
-			}
-		case " ":
-			m.selected[m.cursor] = !m.selected[m.cursor]
-		case "a":
-			for i := range m.choices {
-				m.selected[i] = true
-			}
-		case "n":
-			m.selected = make(map[int]bool)
+		if m.filtering {
+			return m.updateFilter(msg)
+		}
+		return m.updateNormal(msg)
+	}
+	return m, nil
+}
+
+func (m multiSelectModel) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c", "esc":
+		m.canceled = true
+		return m, tea.Quit
+	case "enter":
+		m.done = true
+		return m, tea.Quit
+	case "up", "k":
+		if m.cursor > 0 {
+			m.cursor--
+			m.adjustScroll()
+		}
+	case "down", "j":
+		if m.cursor < len(m.filtered)-1 {
+			m.cursor++
+			m.adjustScroll()
+		}
+	case " ":
+		if len(m.filtered) > 0 {
+			idx := m.filtered[m.cursor]
+			m.selected[idx] = !m.selected[idx]
+		}
+	case "a":
+		for _, idx := range m.filtered {
+			m.selected[idx] = true
+		}
+	case "n":
+		for _, idx := range m.filtered {
+			delete(m.selected, idx)
+		}
+	case "/":
+		m.filtering = true
+	}
+	return m, nil
+}
+
+func (m multiSelectModel) updateFilter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "enter", "esc":
+		m.filtering = false
+		return m, nil
+	case "backspace":
+		if len(m.filter) > 0 {
+			m.filter = m.filter[:len(m.filter)-1]
+			m.applyFilter()
+		}
+	case "ctrl+u":
+		m.filter = ""
+		m.applyFilter()
+	default:
+		if len(msg.String()) == 1 {
+			m.filter += msg.String()
+			m.applyFilter()
 		}
 	}
 	return m, nil
 }
 
+func (m *multiSelectModel) applyFilter() {
+	m.filtered = m.filtered[:0]
+	lower := strings.ToLower(m.filter)
+	for i, choice := range m.choices {
+		if m.filter == "" || strings.Contains(strings.ToLower(choice), lower) {
+			m.filtered = append(m.filtered, i)
+		}
+	}
+	m.cursor = 0
+	m.offset = 0
+}
+
+func (m multiSelectModel) visibleHeight() int {
+	total := len(m.filtered)
+	available := m.termHeight - fixedLines
+	if available < minVisible {
+		available = minVisible
+	}
+
+	// If all items fit, no indicators needed
+	if total <= available {
+		return total
+	}
+
+	// Reserve space for scroll indicators (up to 2 lines)
+	h := available - 2
+	if h < minVisible {
+		h = minVisible
+	}
+	if h > total {
+		h = total
+	}
+	return h
+}
+
 func (m *multiSelectModel) adjustScroll() {
+	h := m.visibleHeight()
+	if h == 0 {
+		return
+	}
 	if m.cursor < m.offset {
 		m.offset = m.cursor
 	}
-	if m.cursor >= m.offset+m.height {
-		m.offset = m.cursor - m.height + 1
+	if m.cursor >= m.offset+h {
+		m.offset = m.cursor - h + 1
 	}
 }
 
 func (m multiSelectModel) View() string {
 	var b strings.Builder
-	b.WriteString(Bold("Select repositories to clone:") + " (space: select, a: all, n: none, enter: confirm, esc: cancel)\n\n")
+	b.WriteString(Bold("Select repositories to clone:") + " (space: select, a: all, n: none, /: filter, enter: confirm, esc: cancel)\n")
 
-	end := m.offset + m.height
-	if end > len(m.choices) {
-		end = len(m.choices)
+	if m.filtering {
+		fmt.Fprintf(&b, "Filter: %s█  %s\n", m.filter, Warn("(ctrl+u: clear, esc/enter: close filter)"))
+	} else if m.filter != "" {
+		b.WriteString(fmt.Sprintf("Filter: %s (%d/%d)\n", Warn(m.filter), len(m.filtered), len(m.choices)))
+	} else {
+		b.WriteString("\n")
+	}
+
+	if len(m.filtered) == 0 {
+		b.WriteString(Warn("  No matches found\n"))
+		return b.String()
+	}
+
+	end := m.offset + m.visibleHeight()
+	if end > len(m.filtered) {
+		end = len(m.filtered)
 	}
 
 	if m.offset > 0 {
 		b.WriteString(fmt.Sprintf("  ... (%d more above)\n", m.offset))
 	}
 
-	for i := m.offset; i < end; i++ {
-		choice := m.choices[i]
+	for fi := m.offset; fi < end; fi++ {
+		idx := m.filtered[fi]
+		choice := m.choices[idx]
 		cursor := "  "
-		if m.cursor == i {
+		if m.cursor == fi {
 			cursor = "> "
 		}
 
-		if m.selected[i] {
+		if m.selected[idx] {
 			b.WriteString(fmt.Sprintf("%s%s\n", cursor, Info("[x] "+choice)))
 		} else {
 			b.WriteString(fmt.Sprintf("%s[ ] %s\n", cursor, choice))
 		}
 	}
 
-	remaining := len(m.choices) - end
+	remaining := len(m.filtered) - end
 	if remaining > 0 {
 		b.WriteString(fmt.Sprintf("  ... (%d more below)\n", remaining))
 	}
