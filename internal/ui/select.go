@@ -11,6 +11,7 @@ const fixedLines = 2 // header + filter/blank line
 const minVisible = 5
 
 type multiSelectModel struct {
+	header     string   // header message
 	choices    []string // display labels (may include tags like [fork])
 	values     []string // actual values to return
 	dimmed     map[int]bool
@@ -25,12 +26,13 @@ type multiSelectModel struct {
 	canceled   bool
 }
 
-func newMultiSelectModel(choices, values []string, dimmed map[int]bool) multiSelectModel {
+func newMultiSelectModel(header string, choices, values []string, dimmed map[int]bool) multiSelectModel {
 	filtered := make([]int, len(choices))
 	for i := range choices {
 		filtered[i] = i
 	}
 	m := multiSelectModel{
+		header:     header,
 		choices:    choices,
 		values:     values,
 		dimmed:     dimmed,
@@ -207,7 +209,7 @@ func (m *multiSelectModel) adjustScroll() {
 
 func (m multiSelectModel) View() string {
 	var b strings.Builder
-	b.WriteString(Bold("Select repositories to clone:") + " (space: select, a: all, n: none, /: filter, enter: confirm, esc: cancel)\n")
+	b.WriteString(Bold(m.header) + " (space: select, a: all, n: none, /: filter, enter: confirm, esc: cancel)\n")
 
 	if m.filtering {
 		fmt.Fprintf(&b, "Filter: %s█  %s\n", m.filter, Warn("(ctrl+u: clear, esc/enter: close filter)"))
@@ -285,7 +287,32 @@ func SelectRepos(repos []RepoOption) ([]string, error) {
 		values[i] = r.Name
 	}
 
-	m := newMultiSelectModel(choices, values, dimmed)
+	m := newMultiSelectModel("Select repositories to clone:", choices, values, dimmed)
+	p := tea.NewProgram(m)
+
+	result, err := p.Run()
+	if err != nil {
+		return nil, fmt.Errorf("prompt failed: %w", err)
+	}
+
+	final := result.(multiSelectModel)
+
+	if final.canceled {
+		return nil, nil
+	}
+
+	var selected []string
+	for i := range final.choices {
+		if final.selected[i] {
+			selected = append(selected, final.values[i])
+		}
+	}
+	return selected, nil
+}
+
+// SelectItems shows an interactive multi-select prompt with a custom header.
+func SelectItems(header string, items []string) ([]string, error) {
+	m := newMultiSelectModel(header, items, items, nil)
 	p := tea.NewProgram(m)
 
 	result, err := p.Run()
