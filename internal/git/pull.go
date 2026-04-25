@@ -11,9 +11,10 @@ import (
 
 // PullResult holds the result of a git pull operation.
 type PullResult struct {
-	Repo   string
-	Branch string
-	Err    error
+	Repo    string
+	Branch  string
+	Skipped bool
+	Err     error
 }
 
 // PullAll runs git pull on all repositories under <root>/<host>/<owner>/ in parallel.
@@ -55,6 +56,11 @@ func PullAll(owner, root, host string, currentBranch bool) []PullResult {
 }
 
 func pullRepo(repoDir, repoName string, currentBranch bool) PullResult {
+	if isDirty(repoDir) {
+		branch := currentBranchName(repoDir)
+		return PullResult{Repo: repoName, Branch: branch, Skipped: true}
+	}
+
 	if !currentBranch {
 		defaultBranch, err := detectDefaultBranch(repoDir)
 		if err != nil {
@@ -72,6 +78,15 @@ func pullRepo(repoDir, repoName string, currentBranch bool) PullResult {
 
 	branch := currentBranchName(repoDir)
 	return PullResult{Repo: repoName, Branch: branch}
+}
+
+// isDirty returns true if the working tree has uncommitted changes.
+func isDirty(repoDir string) bool {
+	out, err := exec.Command("git", "-C", repoDir, "status", "--porcelain").Output()
+	if err != nil {
+		return false
+	}
+	return len(strings.TrimSpace(string(out))) > 0
 }
 
 func currentBranchName(repoDir string) string {

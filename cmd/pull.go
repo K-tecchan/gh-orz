@@ -26,10 +26,12 @@ var pullCmd = &cobra.Command{
 
 		results := gitops.PullAll(owner, root, hostFlag, currentBranchFlag)
 
-		var succeeded, failed []gitops.PullResult
+		var succeeded, skipped, failed []gitops.PullResult
 		for _, r := range results {
 			if r.Err != nil {
 				failed = append(failed, r)
+			} else if r.Skipped {
+				skipped = append(skipped, r)
 			} else {
 				succeeded = append(succeeded, r)
 			}
@@ -40,6 +42,12 @@ var pullCmd = &cobra.Command{
 			fmt.Println(ui.Bold(ui.Successf("Updated (%d):", len(succeeded))))
 			for _, r := range succeeded {
 				fmt.Printf("  %s %s (%s)\n", ui.Success("✓"), r.Repo, ui.Bold(r.Branch))
+			}
+		}
+		if len(skipped) > 0 {
+			fmt.Println(ui.Bold(ui.Warnf("Skipped (%d, uncommitted changes):", len(skipped))))
+			for _, r := range skipped {
+				fmt.Printf("  %s %s (%s)\n", ui.Warn("-"), r.Repo, r.Branch)
 			}
 		}
 		if len(failed) > 0 {
