@@ -43,16 +43,16 @@ func TestListReposWithClient_OrgEndpoint(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	client := newTestClient(t, server)
-	names, err := listReposWithClient(client, "my-org", false)
+	result, err := listReposWithClient(client, "my-org", false)
 	if err != nil {
 		t.Fatalf("listReposWithClient() error: %v", err)
 	}
 
-	if len(names) != 2 {
-		t.Fatalf("got %d repos, want 2", len(names))
+	if len(result) != 2 {
+		t.Fatalf("got %d repos, want 2", len(result))
 	}
-	if names[0] != "repo-a" || names[1] != "repo-b" {
-		t.Errorf("got %v, want [repo-a repo-b]", names)
+	if result[0].Name != "repo-a" || result[1].Name != "repo-b" {
+		t.Errorf("got %v, want [repo-a repo-b]", result)
 	}
 }
 
@@ -70,13 +70,13 @@ func TestListReposWithClient_FallbackToUser(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	client := newTestClient(t, server)
-	names, err := listReposWithClient(client, "some-user", false)
+	result, err := listReposWithClient(client, "some-user", false)
 	if err != nil {
 		t.Fatalf("listReposWithClient() error: %v", err)
 	}
 
-	if len(names) != 1 || names[0] != "personal-repo" {
-		t.Errorf("got %v, want [personal-repo]", names)
+	if len(result) != 1 || result[0].Name != "personal-repo" {
+		t.Errorf("got %v, want [{personal-repo false}]", result)
 	}
 }
 
@@ -89,13 +89,13 @@ func TestListReposWithClient_EmptyRepos(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	client := newTestClient(t, server)
-	names, err := listReposWithClient(client, "empty-org", false)
+	result, err := listReposWithClient(client, "empty-org", false)
 	if err != nil {
 		t.Fatalf("listReposWithClient() error: %v", err)
 	}
 
-	if len(names) != 0 {
-		t.Errorf("got %d repos, want 0", len(names))
+	if len(result) != 0 {
+		t.Errorf("got %d repos, want 0", len(result))
 	}
 }
 
@@ -113,16 +113,16 @@ func TestListReposWithClient_ExcludesArchived(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	client := newTestClient(t, server)
-	names, err := listReposWithClient(client, "my-org", false)
+	result, err := listReposWithClient(client, "my-org", false)
 	if err != nil {
 		t.Fatalf("listReposWithClient() error: %v", err)
 	}
 
-	if len(names) != 2 {
-		t.Fatalf("got %d repos, want 2", len(names))
+	if len(result) != 2 {
+		t.Fatalf("got %d repos, want 2", len(result))
 	}
-	if names[0] != "active-repo" || names[1] != "another-active" {
-		t.Errorf("got %v, want [active-repo another-active]", names)
+	if result[0].Name != "active-repo" || result[1].Name != "another-active" {
+		t.Errorf("got %v, want [active-repo another-active]", result)
 	}
 }
 
@@ -139,15 +139,44 @@ func TestListReposWithClient_IncludesArchived(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	client := newTestClient(t, server)
-	names, err := listReposWithClient(client, "my-org", true)
+	result, err := listReposWithClient(client, "my-org", true)
 	if err != nil {
 		t.Fatalf("listReposWithClient() error: %v", err)
 	}
 
-	if len(names) != 2 {
-		t.Fatalf("got %d repos, want 2", len(names))
+	if len(result) != 2 {
+		t.Fatalf("got %d repos, want 2", len(result))
 	}
-	if names[0] != "active-repo" || names[1] != "old-repo" {
-		t.Errorf("got %v, want [active-repo old-repo]", names)
+	if result[0].Name != "active-repo" || result[1].Name != "old-repo" {
+		t.Errorf("got %v, want [active-repo old-repo]", result)
+	}
+}
+
+func TestListReposWithClient_ForkInfo(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/orgs/my-org/repos", func(w http.ResponseWriter, r *http.Request) {
+		repos := []repo{
+			{Name: "original-repo", Fork: false},
+			{Name: "forked-repo", Fork: true},
+		}
+		json.NewEncoder(w).Encode(repos)
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+
+	client := newTestClient(t, server)
+	result, err := listReposWithClient(client, "my-org", false)
+	if err != nil {
+		t.Fatalf("listReposWithClient() error: %v", err)
+	}
+
+	if len(result) != 2 {
+		t.Fatalf("got %d repos, want 2", len(result))
+	}
+	if result[0].Fork != false {
+		t.Errorf("result[0].Fork = true, want false")
+	}
+	if result[1].Fork != true {
+		t.Errorf("result[1].Fork = false, want true")
 	}
 }

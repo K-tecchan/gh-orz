@@ -11,11 +11,12 @@ const fixedLines = 2 // header + filter/blank line
 const minVisible = 5
 
 type multiSelectModel struct {
-	choices    []string
-	filtered   []int // indices into choices matching the filter
-	cursor     int   // index into filtered
-	offset     int   // scroll offset
-	termHeight int   // terminal height
+	choices    []string // display labels (may include tags like [fork])
+	values     []string // actual values to return
+	filtered   []int    // indices into choices matching the filter
+	cursor     int      // index into filtered
+	offset     int      // scroll offset
+	termHeight int      // terminal height
 	selected   map[int]bool
 	filtering  bool
 	filter     string
@@ -23,13 +24,14 @@ type multiSelectModel struct {
 	canceled   bool
 }
 
-func newMultiSelectModel(choices []string) multiSelectModel {
+func newMultiSelectModel(choices, values []string) multiSelectModel {
 	filtered := make([]int, len(choices))
 	for i := range choices {
 		filtered[i] = i
 	}
 	return multiSelectModel{
 		choices:    choices,
+		values:     values,
 		filtered:   filtered,
 		selected:   make(map[int]bool),
 		termHeight: minVisible + fixedLines,
@@ -211,9 +213,26 @@ func (m multiSelectModel) View() string {
 	return b.String()
 }
 
+// RepoOption represents a repository with display metadata.
+type RepoOption struct {
+	Name string
+	Fork bool
+}
+
 // SelectRepos shows an interactive multi-select prompt for repository selection.
-func SelectRepos(repos []string) ([]string, error) {
-	m := newMultiSelectModel(repos)
+func SelectRepos(repos []RepoOption) ([]string, error) {
+	choices := make([]string, len(repos))
+	values := make([]string, len(repos))
+	for i, r := range repos {
+		label := r.Name
+		if r.Fork {
+			label += " " + Warn("[fork]")
+		}
+		choices[i] = label
+		values[i] = r.Name
+	}
+
+	m := newMultiSelectModel(choices, values)
 	p := tea.NewProgram(m)
 
 	result, err := p.Run()
@@ -228,9 +247,9 @@ func SelectRepos(repos []string) ([]string, error) {
 	}
 
 	var selected []string
-	for i, name := range final.choices {
+	for i := range final.choices {
 		if final.selected[i] {
-			selected = append(selected, name)
+			selected = append(selected, final.values[i])
 		}
 	}
 	return selected, nil

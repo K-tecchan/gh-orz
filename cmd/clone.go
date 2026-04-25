@@ -38,7 +38,11 @@ var cloneCmd = &cobra.Command{
 		if repoFlag != "" {
 			selected = strings.Split(repoFlag, ",")
 		} else {
-			selected, err = ui.SelectRepos(repos)
+			options := make([]ui.RepoOption, len(repos))
+			for i, r := range repos {
+				options[i] = ui.RepoOption{Name: r.Name, Fork: r.Fork}
+			}
+			selected, err = ui.SelectRepos(options)
 			if err != nil {
 				return fmt.Errorf("selection failed: %w", err)
 			}

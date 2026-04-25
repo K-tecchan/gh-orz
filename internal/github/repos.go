@@ -9,13 +9,20 @@ import (
 
 type repo struct {
 	Name     string `json:"name"`
+	Fork     bool   `json:"fork"`
 	Archived bool   `json:"archived"`
+}
+
+// RepoInfo holds information about a repository.
+type RepoInfo struct {
+	Name string
+	Fork bool
 }
 
 // ListRepos fetches all repositories for the given owner (org or user).
 // It first tries the org endpoint, then falls back to the user endpoint.
 // If host is empty, the default gh host is used.
-func ListRepos(owner, host string, includeArchived bool) ([]string, error) {
+func ListRepos(owner, host string, includeArchived bool) ([]RepoInfo, error) {
 	var client *api.RESTClient
 	var err error
 	if host != "" && host != "github.com" {
@@ -29,7 +36,7 @@ func ListRepos(owner, host string, includeArchived bool) ([]string, error) {
 	return listReposWithClient(client, owner, includeArchived)
 }
 
-func listReposWithClient(client *api.RESTClient, owner string, includeArchived bool) ([]string, error) {
+func listReposWithClient(client *api.RESTClient, owner string, includeArchived bool) ([]RepoInfo, error) {
 	repos, err := fetchRepos(client, fmt.Sprintf("orgs/%s/repos", owner))
 	if err != nil {
 		// Fall back to user endpoint
@@ -39,14 +46,14 @@ func listReposWithClient(client *api.RESTClient, owner string, includeArchived b
 		}
 	}
 
-	var names []string
+	var result []RepoInfo
 	for _, r := range repos {
 		if !includeArchived && r.Archived {
 			continue
 		}
-		names = append(names, r.Name)
+		result = append(result, RepoInfo{Name: r.Name, Fork: r.Fork})
 	}
-	return names, nil
+	return result, nil
 }
 
 func fetchRepos(client *api.RESTClient, endpoint string) ([]repo, error) {
