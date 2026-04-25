@@ -29,6 +29,11 @@ func Info(s string) string {
 	return output.String(s).Foreground(output.Color("4")).String()
 }
 
+// Dim formats text in a muted/dark color.
+func Dim(s string) string {
+	return output.String(s).Faint().String()
+}
+
 // Bold formats text in bold.
 func Bold(s string) string {
 	return output.String(s).Bold().String()

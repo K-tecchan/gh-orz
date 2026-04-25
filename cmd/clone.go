@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/K-tecchan/gh-orz/internal/config"
@@ -34,13 +35,20 @@ var cloneCmd = &cobra.Command{
 			return nil
 		}
 
+		root, err := config.RootDir()
+		if err != nil {
+			return fmt.Errorf("failed to resolve root directory: %w", err)
+		}
+
 		var selected []string
 		if repoFlag != "" {
 			selected = strings.Split(repoFlag, ",")
 		} else {
 			options := make([]ui.RepoOption, len(repos))
 			for i, r := range repos {
-				options[i] = ui.RepoOption{Name: r.Name, Fork: r.Fork}
+				targetDir := filepath.Join(root, hostFlag, owner, r.Name)
+				_, existsErr := os.Stat(targetDir)
+				options[i] = ui.RepoOption{Name: r.Name, Fork: r.Fork, Cloned: existsErr == nil}
 			}
 			selected, err = ui.SelectRepos(options)
 			if err != nil {
@@ -51,11 +59,6 @@ var cloneCmd = &cobra.Command{
 		if len(selected) == 0 {
 			fmt.Println("No repositories selected")
 			return nil
-		}
-
-		root, err := config.RootDir()
-		if err != nil {
-			return fmt.Errorf("failed to resolve root directory: %w", err)
 		}
 
 		var cloned, skipped, failed []gitops.CloneResult

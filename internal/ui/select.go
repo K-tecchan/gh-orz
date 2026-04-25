@@ -13,10 +13,11 @@ const minVisible = 5
 type multiSelectModel struct {
 	choices    []string // display labels (may include tags like [fork])
 	values     []string // actual values to return
-	filtered   []int    // indices into choices matching the filter
-	cursor     int      // index into filtered
-	offset     int      // scroll offset
-	termHeight int      // terminal height
+	dimmed     map[int]bool
+	filtered   []int // indices into choices matching the filter
+	cursor     int   // index into filtered
+	offset     int   // scroll offset
+	termHeight int   // terminal height
 	selected   map[int]bool
 	filtering  bool
 	filter     string
@@ -24,18 +25,21 @@ type multiSelectModel struct {
 	canceled   bool
 }
 
-func newMultiSelectModel(choices, values []string) multiSelectModel {
+func newMultiSelectModel(choices, values []string, dimmed map[int]bool) multiSelectModel {
 	filtered := make([]int, len(choices))
 	for i := range choices {
 		filtered[i] = i
 	}
-	return multiSelectModel{
+	m := multiSelectModel{
 		choices:    choices,
 		values:     values,
+		dimmed:     dimmed,
 		filtered:   filtered,
 		selected:   make(map[int]bool),
 		termHeight: minVisible + fixedLines,
 	}
+	m.skipToSelectable()
+	return m
 }
 
 func (m multiSelectModel) Init() tea.Cmd {
@@ -66,23 +70,21 @@ func (m multiSelectModel) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.done = true
 		return m, tea.Quit
 	case "up", "k":
-		if m.cursor > 0 {
-			m.cursor--
-			m.adjustScroll()
-		}
+		m.moveCursor(-1)
 	case "down", "j":
-		if m.cursor < len(m.filtered)-1 {
-			m.cursor++
-			m.adjustScroll()
-		}
+		m.moveCursor(1)
 	case " ":
 		if len(m.filtered) > 0 {
 			idx := m.filtered[m.cursor]
-			m.selected[idx] = !m.selected[idx]
+			if !m.dimmed[idx] {
+				m.selected[idx] = !m.selected[idx]
+			}
 		}
 	case "a":
 		for _, idx := range m.filtered {
-			m.selected[idx] = true
+			if !m.dimmed[idx] {
+				m.selected[idx] = true
+			}
 		}
 	case "n":
 		for _, idx := range m.filtered {
@@ -116,6 +118,44 @@ func (m multiSelectModel) updateFilter(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// moveCursor moves the cursor by delta, skipping dimmed items.
+func (m *multiSelectModel) moveCursor(delta int) {
+	for {
+		next := m.cursor + delta
+		if next < 0 || next >= len(m.filtered) {
+			return
+		}
+		m.cursor = next
+		m.adjustScroll()
+		if !m.dimmed[m.filtered[m.cursor]] {
+			return
+		}
+	}
+}
+
+// skipToSelectable moves the cursor to the next selectable item from current position.
+func (m *multiSelectModel) skipToSelectable() {
+	if len(m.filtered) == 0 {
+		return
+	}
+	// Try forward first
+	for i := m.cursor; i < len(m.filtered); i++ {
+		if !m.dimmed[m.filtered[i]] {
+			m.cursor = i
+			m.adjustScroll()
+			return
+		}
+	}
+	// Try backward
+	for i := m.cursor - 1; i >= 0; i-- {
+		if !m.dimmed[m.filtered[i]] {
+			m.cursor = i
+			m.adjustScroll()
+			return
+		}
+	}
+}
+
 func (m *multiSelectModel) applyFilter() {
 	m.filtered = m.filtered[:0]
 	lower := strings.ToLower(m.filter)
@@ -126,6 +166,7 @@ func (m *multiSelectModel) applyFilter() {
 	}
 	m.cursor = 0
 	m.offset = 0
+	m.skipToSelectable()
 }
 
 func (m multiSelectModel) visibleHeight() int {
@@ -200,6 +241,8 @@ func (m multiSelectModel) View() string {
 
 		if m.selected[idx] {
 			b.WriteString(fmt.Sprintf("%s%s\n", cursor, Info("[x] "+choice)))
+		} else if m.dimmed[idx] {
+			b.WriteString(fmt.Sprintf("%s%s\n", cursor, Dim("[ ] "+choice)))
 		} else {
 			b.WriteString(fmt.Sprintf("%s[ ] %s\n", cursor, choice))
 		}
@@ -215,24 +258,34 @@ func (m multiSelectModel) View() string {
 
 // RepoOption represents a repository with display metadata.
 type RepoOption struct {
-	Name string
-	Fork bool
+	Name   string
+	Fork   bool
+	Cloned bool
 }
 
 // SelectRepos shows an interactive multi-select prompt for repository selection.
 func SelectRepos(repos []RepoOption) ([]string, error) {
 	choices := make([]string, len(repos))
 	values := make([]string, len(repos))
+	dimmed := make(map[int]bool)
 	for i, r := range repos {
 		label := r.Name
+		var tags []string
 		if r.Fork {
-			label += " " + Warn("[fork]")
+			tags = append(tags, Warn("[fork]"))
+		}
+		if r.Cloned {
+			tags = append(tags, "[cloned]")
+			dimmed[i] = true
+		}
+		if len(tags) > 0 {
+			label += " " + strings.Join(tags, " ")
 		}
 		choices[i] = label
 		values[i] = r.Name
 	}
 
-	m := newMultiSelectModel(choices, values)
+	m := newMultiSelectModel(choices, values, dimmed)
 	p := tea.NewProgram(m)
 
 	result, err := p.Run()
