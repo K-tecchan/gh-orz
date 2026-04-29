@@ -273,12 +273,12 @@ func SelectRepos(repos []RepoOption) ([]string, error) {
 	for i, r := range repos {
 		label := r.Name
 		var tags []string
-		if r.Fork {
-			tags = append(tags, Warn("[fork]"))
-		}
 		if r.Cloned {
 			tags = append(tags, "[cloned]")
 			dimmed[i] = true
+		}
+		if r.Fork {
+			tags = append(tags, Warn("[fork]"))
 		}
 		if len(tags) > 0 {
 			label += " " + strings.Join(tags, " ")
