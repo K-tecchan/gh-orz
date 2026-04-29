@@ -75,6 +75,20 @@ gh orz rm my-org --repo=old,unused     # non-interactive
 
 Automatically cleans up empty owner directories after removal.
 
+### `gh orz exec <owner> -- <command> [args...]`
+
+Run a command in all cloned repositories under an owner.
+
+```sh
+gh orz exec my-org -- git gc                # run git gc in all repos
+gh orz exec my-org -- gh pr list            # list PRs across all repos
+gh orz exec my-org -- git status --short    # check status of all repos
+```
+
+Features:
+- Parallel execution for speed
+- Output is grouped by repository
+
 ### `gh orz status [owner]`
 
 Show a health summary of all cloned repositories.
