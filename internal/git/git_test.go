@@ -151,6 +151,66 @@ func runGit(t *testing.T, dir string, args ...string) {
 	}
 }
 
+func TestExecAll_RunsCommandInAllRepos(t *testing.T) {
+	root := t.TempDir()
+	owner := "test-owner"
+	ownerDir := filepath.Join(root, testHost, owner)
+
+	// Create two repos
+	initRepoWithCommit(t, filepath.Join(ownerDir, "repo-a"))
+	initRepoWithCommit(t, filepath.Join(ownerDir, "repo-b"))
+
+	results := ExecAll(owner, root, testHost, []string{"git", "rev-parse", "--is-inside-work-tree"})
+	if len(results) != 2 {
+		t.Fatalf("ExecAll() returned %d results, want 2", len(results))
+	}
+	for _, r := range results {
+		if r.Err != nil {
+			t.Errorf("ExecAll() repo %s error = %v", r.Repo, r.Err)
+		}
+		if strings.TrimSpace(r.Output) != "true" {
+			t.Errorf("ExecAll() repo %s output = %q, want \"true\"", r.Repo, r.Output)
+		}
+	}
+}
+
+func TestExecAll_NonExistentDir(t *testing.T) {
+	root := t.TempDir()
+
+	results := ExecAll("nonexistent", root, testHost, []string{"echo", "hello"})
+	if len(results) != 1 {
+		t.Fatalf("ExecAll() returned %d results, want 1", len(results))
+	}
+	if results[0].Err == nil {
+		t.Error("ExecAll() error = nil, want error for nonexistent dir")
+	}
+}
+
+func TestExecAll_EmptyOwnerDir(t *testing.T) {
+	root := t.TempDir()
+	owner := "empty-owner"
+	os.MkdirAll(filepath.Join(root, testHost, owner), 0755)
+
+	results := ExecAll(owner, root, testHost, []string{"echo", "hello"})
+	if results != nil {
+		t.Errorf("ExecAll() = %v, want nil for empty dir", results)
+	}
+}
+
+func TestExecAll_CommandFailure(t *testing.T) {
+	root := t.TempDir()
+	owner := "test-owner"
+	initRepoWithCommit(t, filepath.Join(root, testHost, owner, "repo-a"))
+
+	results := ExecAll(owner, root, testHost, []string{"false"})
+	if len(results) != 1 {
+		t.Fatalf("ExecAll() returned %d results, want 1", len(results))
+	}
+	if results[0].Err == nil {
+		t.Error("ExecAll() error = nil, want error for failed command")
+	}
+}
+
 func TestBuildCloneURL_SSH(t *testing.T) {
 	url := buildCloneURL("owner", "repo", "ghe.example.com")
 	// gitProtocol() may return "https" or "ssh" depending on environment,
