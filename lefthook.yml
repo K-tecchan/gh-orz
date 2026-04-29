@@ -1,0 +1,9 @@
+pre-commit:
+  commands:
+    fmt-check:
+      run: test -z "$(gofmt -l .)"
+      fail_text: "gofmt: run 'gofmt -w .' to fix formatting"
+    vet:
+      run: go vet ./...
+    test:
+      run: go test ./...
