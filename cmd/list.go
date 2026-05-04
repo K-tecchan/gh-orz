@@ -51,7 +51,7 @@ var listCmd = &cobra.Command{
 				if fullPathFlag {
 					fmt.Println(filepath.Join(ownerDir, repo.Name()))
 				} else {
-					fmt.Printf("%s/%s\n", owner, repo.Name())
+					fmt.Printf("%s/%s/%s\n", hostFlag, owner, repo.Name())
 				}
 			}
 		}
