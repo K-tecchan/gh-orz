@@ -34,6 +34,11 @@ func Dim(s string) string {
 	return output.String(s).Faint().String()
 }
 
+// Subtle formats text in magenta.
+func Subtle(s string) string {
+	return output.String(s).Foreground(output.Color("5")).String()
+}
+
 // Bold formats text in bold.
 func Bold(s string) string {
 	return output.String(s).Bold().String()

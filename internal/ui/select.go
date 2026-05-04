@@ -260,9 +260,10 @@ func (m multiSelectModel) View() string {
 
 // RepoOption represents a repository with display metadata.
 type RepoOption struct {
-	Name   string
-	Fork   bool
-	Cloned bool
+	Name    string
+	Fork    bool
+	Private bool
+	Cloned  bool
 }
 
 // SelectRepos shows an interactive multi-select prompt for repository selection.
@@ -276,6 +277,9 @@ func SelectRepos(repos []RepoOption) ([]string, error) {
 		if r.Cloned {
 			tags = append(tags, "[cloned]")
 			dimmed[i] = true
+		}
+		if r.Private {
+			tags = append(tags, Subtle("[private]"))
 		}
 		if r.Fork {
 			tags = append(tags, Warn("[fork]"))

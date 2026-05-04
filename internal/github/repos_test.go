@@ -56,11 +56,49 @@ func TestListReposWithClient_OrgEndpoint(t *testing.T) {
 	}
 }
 
+func TestListReposWithClient_FallbackToAuthUser(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/orgs/my-user/repos", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"message":"Not Found"}`))
+	})
+	mux.HandleFunc("/user/repos", func(w http.ResponseWriter, r *http.Request) {
+		repos := []repo{
+			{Name: "public-repo", Private: false, Owner: repoOwner{Login: "my-user"}},
+			{Name: "secret-repo", Private: true, Owner: repoOwner{Login: "my-user"}},
+			{Name: "other-repo", Private: false, Owner: repoOwner{Login: "other-user"}},
+		}
+		json.NewEncoder(w).Encode(repos)
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+
+	client := newTestClient(t, server)
+	result, err := listReposWithClient(client, "my-user", false)
+	if err != nil {
+		t.Fatalf("listReposWithClient() error: %v", err)
+	}
+
+	if len(result) != 2 {
+		t.Fatalf("got %d repos, want 2", len(result))
+	}
+	if result[0].Name != "public-repo" || result[0].Private != false {
+		t.Errorf("result[0] = %+v, want {Name:public-repo Private:false}", result[0])
+	}
+	if result[1].Name != "secret-repo" || result[1].Private != true {
+		t.Errorf("result[1] = %+v, want {Name:secret-repo Private:true}", result[1])
+	}
+}
+
 func TestListReposWithClient_FallbackToUser(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/orgs/some-user/repos", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(`{"message":"Not Found"}`))
+	})
+	// /user/repos returns no matching repos for this owner
+	mux.HandleFunc("/user/repos", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode([]repo{})
 	})
 	mux.HandleFunc("/users/some-user/repos", func(w http.ResponseWriter, r *http.Request) {
 		repos := []repo{{Name: "personal-repo"}}
@@ -76,7 +114,7 @@ func TestListReposWithClient_FallbackToUser(t *testing.T) {
 	}
 
 	if len(result) != 1 || result[0].Name != "personal-repo" {
-		t.Errorf("got %v, want [{personal-repo false}]", result)
+		t.Errorf("got %v, want [{personal-repo}]", result)
 	}
 }
 
@@ -149,6 +187,35 @@ func TestListReposWithClient_IncludesArchived(t *testing.T) {
 	}
 	if result[0].Name != "active-repo" || result[1].Name != "old-repo" {
 		t.Errorf("got %v, want [active-repo old-repo]", result)
+	}
+}
+
+func TestListReposWithClient_PrivateInfo(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/orgs/my-org/repos", func(w http.ResponseWriter, r *http.Request) {
+		repos := []repo{
+			{Name: "public-repo", Private: false},
+			{Name: "private-repo", Private: true},
+		}
+		json.NewEncoder(w).Encode(repos)
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+
+	client := newTestClient(t, server)
+	result, err := listReposWithClient(client, "my-org", false)
+	if err != nil {
+		t.Fatalf("listReposWithClient() error: %v", err)
+	}
+
+	if len(result) != 2 {
+		t.Fatalf("got %d repos, want 2", len(result))
+	}
+	if result[0].Private != false {
+		t.Errorf("result[0].Private = true, want false")
+	}
+	if result[1].Private != true {
+		t.Errorf("result[1].Private = false, want true")
 	}
 }
 
