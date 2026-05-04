@@ -16,12 +16,14 @@ cmd/
   pull.go                  # gh orz pull <owner>
   list.go                  # gh orz list [owner]
   rm.go                    # gh orz rm <owner>
+  exec.go                  # gh orz exec <owner> -- <command>
   status.go                # gh orz status [owner]
 internal/
   config/root.go           # Root directory resolution (gh-orz.root > ghq.root > ~/gh-orz)
-  github/repos.go          # GitHub API client (repo listing with pagination, org/user fallback)
+  github/repos.go          # GitHub API client (repo listing with pagination, org/user/auth-user fallback)
   git/clone.go             # Git clone operations
   git/pull.go              # Git pull with dirty check, default branch detection
+  git/exec.go              # Arbitrary command execution across repos
   git/status.go            # Git status inspection (dirty, unpushed, ahead of default)
   ui/select.go             # Interactive multi-select UI (bubbletea)
   ui/color.go              # Terminal color helpers (termenv)
@@ -53,6 +55,15 @@ go test ./...
 - GitHub API tests use `httptest.Server` with a custom `RoundTripper` to redirect requests
 - Git operation tests create real git repos in temp directories
 - Interactive UI (`internal/ui`) is not unit tested
+
+## Pre-commit hooks
+
+This project uses [lefthook](https://github.com/evilmartians/lefthook) for pre-commit hooks (gofmt, go vet, go test).
+
+```sh
+go install github.com/evilmartians/lefthook@latest
+lefthook install
+```
 
 ## Build and run
 
