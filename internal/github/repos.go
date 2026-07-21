@@ -26,21 +26,79 @@ type RepoInfo struct {
 	Private bool
 }
 
+// newClient creates a REST client for the given host.
+// If host is empty (or "github.com"), the default gh host is used.
+func newClient(host string) (*api.RESTClient, error) {
+	if host != "" && host != "github.com" {
+		return api.NewRESTClient(api.ClientOptions{Host: host})
+	}
+	return api.DefaultRESTClient()
+}
+
 // ListRepos fetches all repositories for the given owner (org or user).
 // It first tries the org endpoint, then falls back to the user endpoint.
 // If host is empty, the default gh host is used.
 func ListRepos(owner, host string, includeArchived bool) ([]RepoInfo, error) {
-	var client *api.RESTClient
-	var err error
-	if host != "" && host != "github.com" {
-		client, err = api.NewRESTClient(api.ClientOptions{Host: host})
-	} else {
-		client, err = api.DefaultRESTClient()
-	}
+	client, err := newClient(host)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create API client: %w", err)
 	}
 	return listReposWithClient(client, owner, includeArchived)
+}
+
+// CurrentUser returns the login of the authenticated user.
+func CurrentUser(host string) (string, error) {
+	client, err := newClient(host)
+	if err != nil {
+		return "", fmt.Errorf("failed to create API client: %w", err)
+	}
+	return currentUserWithClient(client)
+}
+
+func currentUserWithClient(client *api.RESTClient) (string, error) {
+	var u struct {
+		Login string `json:"login"`
+	}
+	if err := client.Get("user", &u); err != nil {
+		return "", fmt.Errorf("failed to get authenticated user: %w", err)
+	}
+	return u.Login, nil
+}
+
+// ListUserOrgs fetches the organizations the authenticated user belongs to.
+func ListUserOrgs(host string) ([]string, error) {
+	client, err := newClient(host)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create API client: %w", err)
+	}
+	return listUserOrgsWithClient(client)
+}
+
+func listUserOrgsWithClient(client *api.RESTClient) ([]string, error) {
+	var orgs []string
+	page := 1
+	for {
+		var pageOrgs []struct {
+			Login string `json:"login"`
+		}
+		path := fmt.Sprintf("user/orgs?per_page=100&page=%d", page)
+		if err := client.Get(path, &pageOrgs); err != nil {
+			return nil, fmt.Errorf("failed to list organizations: %w", err)
+		}
+
+		if len(pageOrgs) == 0 {
+			break
+		}
+		for _, o := range pageOrgs {
+			orgs = append(orgs, o.Login)
+		}
+
+		if len(pageOrgs) < 100 {
+			break
+		}
+		page++
+	}
+	return orgs, nil
 }
 
 func listReposWithClient(client *api.RESTClient, owner string, includeArchived bool) ([]RepoInfo, error) {

@@ -2,6 +2,7 @@ package github
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -245,5 +246,134 @@ func TestListReposWithClient_ForkInfo(t *testing.T) {
 	}
 	if result[1].Fork != true {
 		t.Errorf("result[1].Fork = false, want true")
+	}
+}
+
+func TestCurrentUserWithClient(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/user", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(struct {
+			Login string `json:"login"`
+		}{Login: "my-user"})
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+
+	client := newTestClient(t, server)
+	login, err := currentUserWithClient(client)
+	if err != nil {
+		t.Fatalf("currentUserWithClient() error: %v", err)
+	}
+	if login != "my-user" {
+		t.Errorf("got %q, want %q", login, "my-user")
+	}
+}
+
+func TestCurrentUserWithClient_Error(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/user", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`{"message":"Bad credentials"}`))
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+
+	client := newTestClient(t, server)
+	if _, err := currentUserWithClient(client); err == nil {
+		t.Fatal("currentUserWithClient() error = nil, want error")
+	}
+}
+
+func TestListUserOrgsWithClient(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/user/orgs", func(w http.ResponseWriter, r *http.Request) {
+		orgs := []struct {
+			Login string `json:"login"`
+		}{{Login: "org-a"}, {Login: "org-b"}}
+		json.NewEncoder(w).Encode(orgs)
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+
+	client := newTestClient(t, server)
+	result, err := listUserOrgsWithClient(client)
+	if err != nil {
+		t.Fatalf("listUserOrgsWithClient() error: %v", err)
+	}
+
+	if len(result) != 2 || result[0] != "org-a" || result[1] != "org-b" {
+		t.Errorf("got %v, want [org-a org-b]", result)
+	}
+}
+
+func TestListUserOrgsWithClient_Pagination(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/user/orgs", func(w http.ResponseWriter, r *http.Request) {
+		var orgs []struct {
+			Login string `json:"login"`
+		}
+		switch r.URL.Query().Get("page") {
+		case "1":
+			for i := range 100 {
+				orgs = append(orgs, struct {
+					Login string `json:"login"`
+				}{Login: fmt.Sprintf("org-%d", i)})
+			}
+		case "2":
+			orgs = append(orgs, struct {
+				Login string `json:"login"`
+			}{Login: "org-100"})
+		}
+		json.NewEncoder(w).Encode(orgs)
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+
+	client := newTestClient(t, server)
+	result, err := listUserOrgsWithClient(client)
+	if err != nil {
+		t.Fatalf("listUserOrgsWithClient() error: %v", err)
+	}
+
+	if len(result) != 101 {
+		t.Fatalf("got %d orgs, want 101", len(result))
+	}
+	if result[0] != "org-0" || result[99] != "org-99" || result[100] != "org-100" {
+		t.Errorf("unexpected org order: first=%q last-of-page1=%q page2=%q", result[0], result[99], result[100])
+	}
+}
+
+func TestListUserOrgsWithClient_Empty(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/user/orgs", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode([]struct {
+			Login string `json:"login"`
+		}{})
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+
+	client := newTestClient(t, server)
+	result, err := listUserOrgsWithClient(client)
+	if err != nil {
+		t.Fatalf("listUserOrgsWithClient() error: %v", err)
+	}
+	if len(result) != 0 {
+		t.Errorf("got %d orgs, want 0", len(result))
+	}
+}
+
+func TestListUserOrgsWithClient_Error(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/user/orgs", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"message":"Internal Server Error"}`))
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+
+	client := newTestClient(t, server)
+	if _, err := listUserOrgsWithClient(client); err == nil {
+		t.Fatal("listUserOrgsWithClient() error = nil, want error")
 	}
 }

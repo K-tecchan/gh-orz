@@ -20,13 +20,14 @@ type multiSelectModel struct {
 	offset     int   // scroll offset
 	termHeight int   // terminal height
 	selected   map[int]bool
+	single     bool // single-select (fuzzy-finder) mode: enter picks the item under the cursor
 	filtering  bool
 	filter     string
 	done       bool
 	canceled   bool
 }
 
-func newMultiSelectModel(header string, choices, values []string, dimmed map[int]bool) multiSelectModel {
+func newMultiSelectModel(header string, choices, values []string, dimmed map[int]bool, single bool) multiSelectModel {
 	filtered := make([]int, len(choices))
 	for i := range choices {
 		filtered[i] = i
@@ -38,6 +39,7 @@ func newMultiSelectModel(header string, choices, values []string, dimmed map[int
 		dimmed:     dimmed,
 		filtered:   filtered,
 		selected:   make(map[int]bool),
+		single:     single,
 		termHeight: minVisible + fixedLines,
 	}
 	m.skipToSelectable()
@@ -69,6 +71,12 @@ func (m multiSelectModel) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.canceled = true
 		return m, tea.Quit
 	case "enter":
+		if m.single && len(m.filtered) > 0 {
+			idx := m.filtered[m.cursor]
+			if !m.dimmed[idx] {
+				m.selected[idx] = true
+			}
+		}
 		m.done = true
 		return m, tea.Quit
 	case "up", "k":
@@ -76,21 +84,25 @@ func (m multiSelectModel) updateNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "down", "j":
 		m.moveCursor(1)
 	case " ":
-		if len(m.filtered) > 0 {
+		if !m.single && len(m.filtered) > 0 {
 			idx := m.filtered[m.cursor]
 			if !m.dimmed[idx] {
 				m.selected[idx] = !m.selected[idx]
 			}
 		}
 	case "a":
-		for _, idx := range m.filtered {
-			if !m.dimmed[idx] {
-				m.selected[idx] = true
+		if !m.single {
+			for _, idx := range m.filtered {
+				if !m.dimmed[idx] {
+					m.selected[idx] = true
+				}
 			}
 		}
 	case "n":
-		for _, idx := range m.filtered {
-			delete(m.selected, idx)
+		if !m.single {
+			for _, idx := range m.filtered {
+				delete(m.selected, idx)
+			}
 		}
 	case "/":
 		m.filtering = true
@@ -209,7 +221,11 @@ func (m *multiSelectModel) adjustScroll() {
 
 func (m multiSelectModel) View() string {
 	var b strings.Builder
-	b.WriteString(Bold(m.header) + " (space: select, a: all, n: none, /: filter, enter: confirm, esc: cancel)\n")
+	hint := "(space: select, a: all, n: none, /: filter, enter: confirm, esc: cancel)"
+	if m.single {
+		hint = "(/: filter, enter: select, esc: cancel)"
+	}
+	b.WriteString(Bold(m.header) + " " + hint + "\n")
 
 	if m.filtering {
 		fmt.Fprintf(&b, "Filter: %s█  %s\n", m.filter, Warn("(ctrl+u: clear, esc/enter: close filter)"))
@@ -241,11 +257,18 @@ func (m multiSelectModel) View() string {
 			cursor = "> "
 		}
 
-		if m.selected[idx] {
+		switch {
+		case m.single:
+			if m.cursor == fi {
+				b.WriteString(fmt.Sprintf("%s%s\n", cursor, Info(choice)))
+			} else {
+				b.WriteString(fmt.Sprintf("%s%s\n", cursor, choice))
+			}
+		case m.selected[idx]:
 			b.WriteString(fmt.Sprintf("%s%s\n", cursor, Info("[x] "+choice)))
-		} else if m.dimmed[idx] {
+		case m.dimmed[idx]:
 			b.WriteString(fmt.Sprintf("%s%s\n", cursor, Dim("[ ] "+choice)))
-		} else {
+		default:
 			b.WriteString(fmt.Sprintf("%s[ ] %s\n", cursor, choice))
 		}
 	}
@@ -291,7 +314,7 @@ func SelectRepos(repos []RepoOption) ([]string, error) {
 		values[i] = r.Name
 	}
 
-	m := newMultiSelectModel("Select repositories to clone:", choices, values, dimmed)
+	m := newMultiSelectModel("Select repositories to clone:", choices, values, dimmed, false)
 	p := tea.NewProgram(m)
 
 	result, err := p.Run()
@@ -316,7 +339,7 @@ func SelectRepos(repos []RepoOption) ([]string, error) {
 
 // SelectItems shows an interactive multi-select prompt with a custom header.
 func SelectItems(header string, items []string) ([]string, error) {
-	m := newMultiSelectModel(header, items, items, nil)
+	m := newMultiSelectModel(header, items, items, nil, false)
 	p := tea.NewProgram(m)
 
 	result, err := p.Run()
@@ -337,4 +360,30 @@ func SelectItems(header string, items []string) ([]string, error) {
 		}
 	}
 	return selected, nil
+}
+
+// SelectOne shows an interactive single-select fuzzy-finder prompt with a
+// custom header. Returns an empty string if the user cancels or nothing is
+// selected.
+func SelectOne(header string, items []string) (string, error) {
+	m := newMultiSelectModel(header, items, items, nil, true)
+	p := tea.NewProgram(m)
+
+	result, err := p.Run()
+	if err != nil {
+		return "", fmt.Errorf("prompt failed: %w", err)
+	}
+
+	final := result.(multiSelectModel)
+
+	if final.canceled {
+		return "", nil
+	}
+
+	for i := range final.values {
+		if final.selected[i] {
+			return final.values[i], nil
+		}
+	}
+	return "", nil
 }

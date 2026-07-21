@@ -19,11 +19,24 @@ var (
 )
 
 var cloneCmd = &cobra.Command{
-	Use:   "clone <owner>",
+	Use:   "clone [owner]",
 	Short: "Clone repositories under an org or user",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		owner := args[0]
+		var owner string
+		if len(args) > 0 {
+			owner = args[0]
+		} else {
+			selected, err := selectOwner(hostFlag)
+			if err != nil {
+				return err
+			}
+			if selected == "" {
+				fmt.Println("No org or user selected")
+				return nil
+			}
+			owner = selected
+		}
 
 		repos, err := gh.ListRepos(owner, hostFlag, includeArchivedFlag)
 		if err != nil {
@@ -103,4 +116,24 @@ func init() {
 	cloneCmd.Flags().StringVar(&repoFlag, "repo", "", "comma-separated list of repos to clone (skips interactive selection)")
 	cloneCmd.Flags().BoolVar(&includeArchivedFlag, "include-archived", false, "include archived repositories")
 	rootCmd.AddCommand(cloneCmd)
+}
+
+// selectOwner prompts the user to pick an org they belong to via a fuzzy
+// finder. If the user has no org memberships, their own account is offered
+// as the only option instead.
+func selectOwner(host string) (string, error) {
+	orgs, err := gh.ListUserOrgs(host)
+	if err != nil {
+		return "", fmt.Errorf("failed to list organizations: %w", err)
+	}
+
+	if len(orgs) == 0 {
+		user, err := gh.CurrentUser(host)
+		if err != nil {
+			return "", fmt.Errorf("failed to get authenticated user: %w", err)
+		}
+		orgs = []string{user}
+	}
+
+	return ui.SelectOne("Select an org or user:", orgs)
 }
