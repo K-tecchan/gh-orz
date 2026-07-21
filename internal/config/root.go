@@ -24,6 +24,39 @@ func RootDir() (string, error) {
 	return filepath.Join(home, "gh-orz"), nil
 }
 
+// ClonedOwnerCounts scans root/host for owner directories that already have
+// cloned repos, returning a map of owner name to number of cloned repos.
+// Owners with no cloned repos are omitted. A missing root/host directory
+// yields an empty map rather than an error.
+func ClonedOwnerCounts(root, host string) map[string]int {
+	hostDir := filepath.Join(root, host)
+	ownerEntries, err := os.ReadDir(hostDir)
+	if err != nil {
+		return nil
+	}
+
+	counts := make(map[string]int)
+	for _, owner := range ownerEntries {
+		if !owner.IsDir() {
+			continue
+		}
+		repoEntries, err := os.ReadDir(filepath.Join(hostDir, owner.Name()))
+		if err != nil {
+			continue
+		}
+		n := 0
+		for _, repo := range repoEntries {
+			if repo.IsDir() {
+				n++
+			}
+		}
+		if n > 0 {
+			counts[owner.Name()] = n
+		}
+	}
+	return counts
+}
+
 func gitConfigGet(key string) string {
 	out, err := exec.Command("git", "config", "--global", key).Output()
 	if err != nil {

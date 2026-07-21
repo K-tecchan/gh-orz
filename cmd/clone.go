@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/K-tecchan/gh-orz/internal/config"
@@ -23,19 +24,24 @@ var cloneCmd = &cobra.Command{
 	Short: "Clone repositories under an org or user",
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		root, err := config.RootDir()
+		if err != nil {
+			return fmt.Errorf("failed to resolve root directory: %w", err)
+		}
+
 		var owner string
 		if len(args) > 0 {
 			owner = args[0]
 		} else {
-			selected, err := selectOwner(hostFlag)
+			selectedOwner, err := selectOwner(hostFlag, root)
 			if err != nil {
 				return err
 			}
-			if selected == "" {
+			if selectedOwner == "" {
 				fmt.Println("No org or user selected")
 				return nil
 			}
-			owner = selected
+			owner = selectedOwner
 		}
 
 		repos, err := gh.ListRepos(owner, hostFlag, includeArchivedFlag)
@@ -46,11 +52,6 @@ var cloneCmd = &cobra.Command{
 		if len(repos) == 0 {
 			fmt.Printf("No repositories found for %s\n", owner)
 			return nil
-		}
-
-		root, err := config.RootDir()
-		if err != nil {
-			return fmt.Errorf("failed to resolve root directory: %w", err)
 		}
 
 		var selected []string
@@ -120,8 +121,9 @@ func init() {
 
 // selectOwner prompts the user to pick an org they belong to via a fuzzy
 // finder. If the user has no org memberships, their own account is offered
-// as the only option instead.
-func selectOwner(host string) (string, error) {
+// instead. Owners with repos already cloned under root/host are also
+// included as options and tagged with how many repos are cloned locally.
+func selectOwner(host, root string) (string, error) {
 	orgs, err := gh.ListUserOrgs(host)
 	if err != nil {
 		return "", fmt.Errorf("failed to list organizations: %w", err)
@@ -135,5 +137,25 @@ func selectOwner(host string) (string, error) {
 		orgs = []string{user}
 	}
 
-	return ui.SelectOne("Select an org or user:", orgs)
+	clonedCounts := config.ClonedOwnerCounts(root, host)
+
+	seen := make(map[string]bool, len(orgs))
+	options := make([]ui.OwnerOption, 0, len(orgs))
+	for _, o := range orgs {
+		seen[o] = true
+		options = append(options, ui.OwnerOption{Name: o, ClonedCount: clonedCounts[o]})
+	}
+
+	var extra []string
+	for name := range clonedCounts {
+		if !seen[name] {
+			extra = append(extra, name)
+		}
+	}
+	sort.Strings(extra)
+	for _, name := range extra {
+		options = append(options, ui.OwnerOption{Name: name, ClonedCount: clonedCounts[name]})
+	}
+
+	return ui.SelectOwner(options)
 }

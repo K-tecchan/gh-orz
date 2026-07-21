@@ -259,11 +259,11 @@ func (m multiSelectModel) View() string {
 
 		switch {
 		case m.single:
-			if m.cursor == fi {
-				b.WriteString(fmt.Sprintf("%s%s\n", cursor, Info(choice)))
-			} else {
-				b.WriteString(fmt.Sprintf("%s%s\n", cursor, choice))
-			}
+			// choice may already contain its own ANSI styling (e.g. a Dim
+			// tag), so the cursor row is marked via the "> " prefix only —
+			// wrapping the whole string in another color would nest ANSI
+			// codes and let it bleed into (and override) that styling.
+			fmt.Fprintf(&b, "%s%s\n", cursor, choice)
 		case m.selected[idx]:
 			b.WriteString(fmt.Sprintf("%s%s\n", cursor, Info("[x] "+choice)))
 		case m.dimmed[idx]:
@@ -362,11 +362,30 @@ func SelectItems(header string, items []string) ([]string, error) {
 	return selected, nil
 }
 
-// SelectOne shows an interactive single-select fuzzy-finder prompt with a
-// custom header. Returns an empty string if the user cancels or nothing is
-// selected.
-func SelectOne(header string, items []string) (string, error) {
-	m := newMultiSelectModel(header, items, items, nil, true)
+// OwnerOption represents an org or user with local clone metadata.
+type OwnerOption struct {
+	Name        string
+	ClonedCount int // number of repos already cloned locally under this owner; 0 if none
+}
+
+// SelectOwner shows an interactive single-select fuzzy-finder prompt for
+// picking an org or user. Owners with existing local clones are tagged with
+// the number of repos already cloned, so the label can't be mistaken for
+// "this owner is fully cloned". Returns an empty string if the user cancels
+// or nothing is selected.
+func SelectOwner(owners []OwnerOption) (string, error) {
+	choices := make([]string, len(owners))
+	values := make([]string, len(owners))
+	for i, o := range owners {
+		label := o.Name
+		if o.ClonedCount > 0 {
+			label += " " + Dim(fmt.Sprintf("[%d cloned]", o.ClonedCount))
+		}
+		choices[i] = label
+		values[i] = o.Name
+	}
+
+	m := newMultiSelectModel("Select an org or user:", choices, values, nil, true)
 	p := tea.NewProgram(m)
 
 	result, err := p.Run()
