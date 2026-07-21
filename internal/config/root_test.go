@@ -82,3 +82,57 @@ func TestRootDir_Default(t *testing.T) {
 		t.Errorf("RootDir() = %q, want %q", root, want)
 	}
 }
+
+func TestClonedOwnerCounts(t *testing.T) {
+	root := t.TempDir()
+	host := "github.com"
+
+	mkRepoDir := func(owner, repo string) {
+		if err := os.MkdirAll(filepath.Join(root, host, owner, repo), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mkRepoDir("acme-corp", "repo-a")
+	mkRepoDir("acme-corp", "repo-b")
+	mkRepoDir("solo-user", "dotfiles")
+
+	// A non-directory entry under an owner dir shouldn't be counted as a repo.
+	if err := os.WriteFile(filepath.Join(root, host, "acme-corp", "README.md"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	counts := ClonedOwnerCounts(root, host)
+
+	if counts["acme-corp"] != 2 {
+		t.Errorf(`counts["acme-corp"] = %d, want 2`, counts["acme-corp"])
+	}
+	if counts["solo-user"] != 1 {
+		t.Errorf(`counts["solo-user"] = %d, want 1`, counts["solo-user"])
+	}
+	if len(counts) != 2 {
+		t.Errorf("got %d owners, want 2: %v", len(counts), counts)
+	}
+}
+
+func TestClonedOwnerCounts_EmptyOwnerDirOmitted(t *testing.T) {
+	root := t.TempDir()
+	host := "github.com"
+
+	if err := os.MkdirAll(filepath.Join(root, host, "empty-org"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	counts := ClonedOwnerCounts(root, host)
+	if len(counts) != 0 {
+		t.Errorf("got %d owners, want 0: %v", len(counts), counts)
+	}
+}
+
+func TestClonedOwnerCounts_MissingHostDir(t *testing.T) {
+	root := t.TempDir()
+
+	counts := ClonedOwnerCounts(root, "github.com")
+	if len(counts) != 0 {
+		t.Errorf("got %d owners, want 0: %v", len(counts), counts)
+	}
+}

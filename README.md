@@ -17,17 +17,19 @@ gh extension install https://github.com/K-tecchan/gh-orz
 
 ## Commands
 
-### `gh orz clone <owner>`
+### `gh orz clone [owner]`
 
 Clone repositories under an org or user with interactive multi-select.
 
 ```sh
+gh orz clone                                 # fuzzy-select an org or user, then interactive selection
 gh orz clone my-org                          # interactive selection
 gh orz clone my-org --repo=api,web,docs      # non-interactive
 gh orz clone my-org --include-archived       # include archived repos
 ```
 
 Features:
+- If `owner` is omitted, a fuzzy finder lists the orgs you belong to (falling back to your own account if you have none), plus any owner you've already cloned repos from, tagged with `[N cloned]`
 - Interactive multi-select UI with filter search (`/` key)
 - Fork repos are labeled with `[fork]`
 - Already cloned repos are dimmed and non-selectable
