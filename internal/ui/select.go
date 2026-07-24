@@ -5,10 +5,19 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/K-tecchan/gh-orz/internal/config"
 )
 
 const fixedLines = 2 // header + filter/blank line
 const minVisible = 5
+
+// Nerd Font glyphs used to tag repos in place of plain text like "[private]"
+// and "[fork]"; see config.IconsDisabled.
+const (
+	iconPrivate = "" // nf-fa-lock
+	iconFork    = "" // nf-fa-code_fork
+)
 
 type multiSelectModel struct {
 	header     string   // header message
@@ -294,6 +303,7 @@ func SelectRepos(repos []RepoOption) ([]string, error) {
 	choices := make([]string, len(repos))
 	values := make([]string, len(repos))
 	dimmed := make(map[int]bool)
+	iconsDisabled := config.IconsDisabled()
 	for i, r := range repos {
 		label := r.Name
 		var tags []string
@@ -302,10 +312,18 @@ func SelectRepos(repos []RepoOption) ([]string, error) {
 			dimmed[i] = true
 		}
 		if r.Private {
-			tags = append(tags, Subtle("[private]"))
+			if iconsDisabled {
+				tags = append(tags, Subtle("[private]"))
+			} else {
+				tags = append(tags, Subtle(iconPrivate))
+			}
 		}
 		if r.Fork {
-			tags = append(tags, Warn("[fork]"))
+			if iconsDisabled {
+				tags = append(tags, Warn("[fork]"))
+			} else {
+				tags = append(tags, Warn(iconFork))
+			}
 		}
 		if len(tags) > 0 {
 			label += " " + strings.Join(tags, " ")

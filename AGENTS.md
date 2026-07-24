@@ -19,7 +19,7 @@ cmd/
   exec.go                  # gh orz exec <owner> -- <command>
   status.go                # gh orz status [owner]
 internal/
-  config/root.go           # Root directory resolution (gh-orz.root > ghq.root > ~/gh-orz)
+  config/root.go           # Root directory resolution (gh-orz.root > ghq.root > ~/gh-orz), icon toggle (gh-orz.iconDisabled)
   github/repos.go          # GitHub API client (repo listing with pagination, org/user/auth-user fallback)
   git/clone.go             # Git clone operations
   git/pull.go              # Git pull with dirty check, default branch detection
@@ -78,6 +78,10 @@ Priority order:
 1. `git config --global gh-orz.root`
 2. `git config --global ghq.root`
 3. `~/gh-orz`
+
+## Icons
+
+Repo tags (private/fork) in the `gh orz clone` selector use Nerd Font glyphs by default (`internal/ui/select.go`). `git config --global gh-orz.iconDisabled true` falls back to plain text tags (`[private]`, `[fork]`) via `config.IconsDisabled()`.
 
 ## GHE support
 
