@@ -83,6 +83,15 @@ func TestRootDir_Default(t *testing.T) {
 	}
 }
 
+func TestIconsDisabled_Default(t *testing.T) {
+	// Mirrors TestRootDir_Default: honors the tester's actual global
+	// gh-orz.iconDisabled if set, otherwise expects the default (enabled, i.e. not disabled).
+	want := gitConfigGet("gh-orz.iconDisabled") == "true"
+	if got := IconsDisabled(); got != want {
+		t.Errorf("IconsDisabled() = %v, want %v", got, want)
+	}
+}
+
 func TestClonedOwnerCounts(t *testing.T) {
 	root := t.TempDir()
 	host := "github.com"
