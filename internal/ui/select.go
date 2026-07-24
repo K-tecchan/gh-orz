@@ -308,7 +308,6 @@ func SelectRepos(repos []RepoOption) ([]string, error) {
 		label := r.Name
 		var tags []string
 		if r.Cloned {
-			tags = append(tags, "[cloned]")
 			dimmed[i] = true
 		}
 		if r.Private {
