@@ -16,6 +16,8 @@ const minVisible = 5
 // and "[fork]"; see config.IconsDisabled.
 const (
 	iconPrivate = "" // nf-fa-lock
+	iconOrg     = "" // nf-oct-organization
+	iconUser    = "" // nf-fa-user
 	iconFork    = "" // nf-fa-code_fork
 )
 
@@ -382,19 +384,37 @@ func SelectItems(header string, items []string) ([]string, error) {
 // OwnerOption represents an org or user with local clone metadata.
 type OwnerOption struct {
 	Name        string
-	ClonedCount int // number of repos already cloned locally under this owner; 0 if none
+	ClonedCount int  // number of repos already cloned locally under this owner; 0 if none
+	IsOrg       bool // owner is an org the authenticated user belongs to
+	IsUser      bool // owner is the authenticated user's own account
 }
 
 // SelectOwner shows an interactive single-select fuzzy-finder prompt for
-// picking an org or user. Owners with existing local clones are tagged with
-// the number of repos already cloned, so the label can't be mistaken for
-// "this owner is fully cloned". Returns an empty string if the user cancels
-// or nothing is selected.
+// picking an org or user. Owners the authenticated user belongs to (or is)
+// are tagged with an org/user icon; owners with existing local clones are
+// additionally tagged with the number of repos already cloned, so the label
+// can't be mistaken for "this owner is fully cloned". Returns an empty
+// string if the user cancels or nothing is selected.
 func SelectOwner(owners []OwnerOption) (string, error) {
 	choices := make([]string, len(owners))
 	values := make([]string, len(owners))
+	iconsDisabled := config.IconsDisabled()
 	for i, o := range owners {
 		label := o.Name
+		switch {
+		case o.IsOrg:
+			if iconsDisabled {
+				label += " " + Info("[org]")
+			} else {
+				label += " " + Info(iconOrg)
+			}
+		case o.IsUser:
+			if iconsDisabled {
+				label += " " + Subtle("[user]")
+			} else {
+				label += " " + Subtle(iconUser)
+			}
+		}
 		if o.ClonedCount > 0 {
 			label += " " + Dim(fmt.Sprintf("[%d cloned]", o.ClonedCount))
 		}
