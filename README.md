@@ -29,9 +29,9 @@ gh orz clone my-org --include-archived       # include archived repos
 ```
 
 Features:
-- If `owner` is omitted, a fuzzy finder lists the orgs you belong to (falling back to your own account if you have none), plus any owner you've already cloned repos from, tagged with `[N cloned]`
+- If `owner` is omitted, a fuzzy finder lists the orgs you belong to ( org) and your own account ( user), plus any owner you've already cloned repos from, tagged with `[N cloned]`
 - Interactive multi-select UI with filter search (`/` key)
-- Private and fork repos are tagged with [Nerd Font](https://www.nerdfonts.com/) icons ( private,  fork); set `gh-orz.iconDisabled` to `true` to fall back to `[private]`/`[fork]` text tags
+- Private and fork repos are tagged with [Nerd Font](https://www.nerdfonts.com/) icons ( private,  fork); set `gh-orz.iconDisabled` to `true` to fall back to `[private]`/`[fork]`/`[org]`/`[user]` text tags
 - Already cloned repos are dimmed and non-selectable
 - SSH/HTTPS based on `gh config get git_protocol`
 
