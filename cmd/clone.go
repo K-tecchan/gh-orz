@@ -119,32 +119,33 @@ func init() {
 	rootCmd.AddCommand(cloneCmd)
 }
 
-// selectOwner prompts the user to pick an org they belong to via a fuzzy
-// finder. If the user has no org memberships, their own account is offered
-// instead. Owners with repos already cloned under root/host are also
-// included as options and tagged with how many repos are cloned locally.
+// selectOwner prompts the user to pick an org or their own account via a
+// fuzzy finder. Orgs the user belongs to are tagged with an org icon, and
+// the user's own account is always offered too, tagged with a user icon.
+// Owners with repos already cloned under root/host are also included as
+// options and tagged with how many repos are cloned locally.
 func selectOwner(host, root string) (string, error) {
 	orgs, err := gh.ListUserOrgs(host)
 	if err != nil {
 		return "", fmt.Errorf("failed to list organizations: %w", err)
 	}
 
-	if len(orgs) == 0 {
-		user, err := gh.CurrentUser(host)
-		if err != nil {
-			return "", fmt.Errorf("failed to get authenticated user: %w", err)
-		}
-		orgs = []string{user}
+	user, err := gh.CurrentUser(host)
+	if err != nil {
+		return "", fmt.Errorf("failed to get authenticated user: %w", err)
 	}
 
 	clonedCounts := config.ClonedOwnerCounts(root, host)
 
-	seen := make(map[string]bool, len(orgs))
-	options := make([]ui.OwnerOption, 0, len(orgs))
+	seen := make(map[string]bool, len(orgs)+1)
+	options := make([]ui.OwnerOption, 0, len(orgs)+1)
 	for _, o := range orgs {
 		seen[o] = true
-		options = append(options, ui.OwnerOption{Name: o, ClonedCount: clonedCounts[o]})
+		options = append(options, ui.OwnerOption{Name: o, ClonedCount: clonedCounts[o], IsOrg: true})
 	}
+
+	seen[user] = true
+	options = append(options, ui.OwnerOption{Name: user, ClonedCount: clonedCounts[user], IsUser: true})
 
 	var extra []string
 	for name := range clonedCounts {

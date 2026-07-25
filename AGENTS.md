@@ -81,7 +81,7 @@ Priority order:
 
 ## Icons
 
-Repo tags (private/fork) in the `gh orz clone` selector use Nerd Font glyphs by default (`internal/ui/select.go`). `git config --global gh-orz.iconDisabled true` falls back to plain text tags (`[private]`, `[fork]`) via `config.IconsDisabled()`.
+Repo tags (private/fork) and owner tags (org/user) in the `gh orz clone` selector use Nerd Font glyphs by default (`internal/ui/select.go`). `git config --global gh-orz.iconDisabled true` falls back to plain text tags (`[private]`, `[fork]`, `[org]`, `[user]`) via `config.IconsDisabled()`.
 
 ## GHE support
 
