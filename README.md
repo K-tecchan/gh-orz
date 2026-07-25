@@ -123,7 +123,7 @@ gh-orz resolves the root directory in this order:
 
 ## Icons
 
-Repo tags (private/fork) use [Nerd Font](https://www.nerdfonts.com/) icons by default. If your terminal font isn't a Nerd Font, disable them to fall back to plain text tags:
+Repo tags (private/fork) and owner tags (org/user) use [Nerd Font](https://www.nerdfonts.com/) icons by default. If your terminal font isn't a Nerd Font, disable them to fall back to plain text tags:
 
 ```sh
 git config --global gh-orz.iconDisabled true
