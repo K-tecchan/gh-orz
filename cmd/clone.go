@@ -62,7 +62,7 @@ var cloneCmd = &cobra.Command{
 			for i, r := range repos {
 				targetDir := filepath.Join(root, hostFlag, owner, r.Name)
 				_, existsErr := os.Stat(targetDir)
-				options[i] = ui.RepoOption{Name: r.Name, Fork: r.Fork, Private: r.Private, Cloned: existsErr == nil}
+				options[i] = ui.RepoOption{Name: r.Name, Fork: r.Fork, Visibility: r.Visibility, Cloned: existsErr == nil}
 			}
 			selected, err = ui.SelectRepos(options)
 			if err != nil {

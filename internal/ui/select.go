@@ -15,10 +15,11 @@ const minVisible = 5
 // Nerd Font glyphs used to tag repos in place of plain text like "[private]"
 // and "[fork]"; see config.IconsDisabled.
 const (
-	iconPrivate = "" // nf-fa-lock
-	iconOrg     = "" // nf-oct-organization
-	iconUser    = "" // nf-fa-user
-	iconFork    = "" // nf-fa-code_fork
+	iconPrivate  = "" // nf-fa-lock
+	iconInternal = "" // nf-fa-unlock
+	iconOrg      = "" // nf-oct-organization
+	iconUser     = "" // nf-fa-user
+	iconFork     = "" // nf-fa-code_fork
 )
 
 type multiSelectModel struct {
@@ -294,10 +295,10 @@ func (m multiSelectModel) View() string {
 
 // RepoOption represents a repository with display metadata.
 type RepoOption struct {
-	Name    string
-	Fork    bool
-	Private bool
-	Cloned  bool
+	Name       string
+	Fork       bool
+	Visibility string // "public", "private" or "internal"
+	Cloned     bool
 }
 
 // SelectRepos shows an interactive multi-select prompt for repository selection.
@@ -312,11 +313,18 @@ func SelectRepos(repos []RepoOption) ([]string, error) {
 		if r.Cloned {
 			dimmed[i] = true
 		}
-		if r.Private {
+		switch r.Visibility {
+		case "private":
 			if iconsDisabled {
 				tags = append(tags, Subtle("[private]"))
 			} else {
 				tags = append(tags, Subtle(iconPrivate))
+			}
+		case "internal":
+			if iconsDisabled {
+				tags = append(tags, Internal("[internal]"))
+			} else {
+				tags = append(tags, Internal(iconInternal))
 			}
 		}
 		if r.Fork {
