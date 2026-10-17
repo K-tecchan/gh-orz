@@ -39,6 +39,11 @@ func Subtle(s string) string {
 	return output.String(s).Foreground(output.Color("5")).String()
 }
 
+// Internal formats text in cyan, used to tag internal repos.
+func Internal(s string) string {
+	return output.String(s).Foreground(output.Color("6")).String()
+}
+
 // Bold formats text in bold.
 func Bold(s string) string {
 	return output.String(s).Bold().String()

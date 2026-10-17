@@ -322,9 +322,9 @@ func SelectRepos(repos []RepoOption) ([]string, error) {
 			}
 		case "internal":
 			if iconsDisabled {
-				tags = append(tags, Subtle("[internal]"))
+				tags = append(tags, Internal("[internal]"))
 			} else {
-				tags = append(tags, Subtle(iconInternal))
+				tags = append(tags, Internal(iconInternal))
 			}
 		}
 		if r.Fork {
