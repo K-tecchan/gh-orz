@@ -12,7 +12,7 @@ gh-orz is a GitHub CLI extension written in Go. It bulk clones, updates, and man
 main.go                    # Entry point, calls cmd.Execute()
 cmd/
   root.go                  # Cobra root command, --host flag
-  clone.go                 # gh orz clone <owner>
+  clone.go                 # gh orz clone [owner]
   pull.go                  # gh orz pull <owner>
   list.go                  # gh orz list [owner]
   rm.go                    # gh orz rm <owner>
