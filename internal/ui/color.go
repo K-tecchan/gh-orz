@@ -34,19 +34,38 @@ func Dim(s string) string {
 	return output.String(s).Faint().String()
 }
 
-// Subtle formats text in magenta.
-func Subtle(s string) string {
-	return output.String(s).Foreground(output.Color("5")).String()
-}
-
-// Internal formats text in cyan, used to tag internal repos.
-func Internal(s string) string {
-	return output.String(s).Foreground(output.Color("6")).String()
-}
-
 // Bold formats text in bold.
 func Bold(s string) string {
 	return output.String(s).Bold().String()
+}
+
+// Tag styles for repo and owner tags in the selectors. These are kept
+// separate from the status colors above so tags can be restyled without
+// affecting status output.
+
+// PrivateTag formats a private repo tag in magenta.
+func PrivateTag(s string) string {
+	return output.String(s).Foreground(output.Color("5")).String()
+}
+
+// InternalTag formats an internal repo tag in cyan.
+func InternalTag(s string) string {
+	return output.String(s).Foreground(output.Color("6")).String()
+}
+
+// ForkTag formats a fork repo tag in yellow.
+func ForkTag(s string) string {
+	return output.String(s).Foreground(output.Color("3")).String()
+}
+
+// OrgTag formats an org owner tag in blue.
+func OrgTag(s string) string {
+	return output.String(s).Foreground(output.Color("4")).String()
+}
+
+// UserTag formats a user owner tag in magenta.
+func UserTag(s string) string {
+	return output.String(s).Foreground(output.Color("5")).String()
 }
 
 // Successf is a formatted version of Success.
