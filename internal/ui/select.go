@@ -316,22 +316,22 @@ func SelectRepos(repos []RepoOption) ([]string, error) {
 		switch r.Visibility {
 		case "private":
 			if iconsDisabled {
-				tags = append(tags, Subtle("[private]"))
+				tags = append(tags, PrivateTag("[private]"))
 			} else {
-				tags = append(tags, Subtle(iconPrivate))
+				tags = append(tags, PrivateTag(iconPrivate))
 			}
 		case "internal":
 			if iconsDisabled {
-				tags = append(tags, Internal("[internal]"))
+				tags = append(tags, InternalTag("[internal]"))
 			} else {
-				tags = append(tags, Internal(iconInternal))
+				tags = append(tags, InternalTag(iconInternal))
 			}
 		}
 		if r.Fork {
 			if iconsDisabled {
-				tags = append(tags, Warn("[fork]"))
+				tags = append(tags, ForkTag("[fork]"))
 			} else {
-				tags = append(tags, Warn(iconFork))
+				tags = append(tags, ForkTag(iconFork))
 			}
 		}
 		if len(tags) > 0 {
@@ -412,15 +412,15 @@ func SelectOwner(owners []OwnerOption) (string, error) {
 		switch {
 		case o.IsOrg:
 			if iconsDisabled {
-				label += " " + Info("[org]")
+				label += " " + OrgTag("[org]")
 			} else {
-				label += " " + Info(iconOrg)
+				label += " " + OrgTag(iconOrg)
 			}
 		case o.IsUser:
 			if iconsDisabled {
-				label += " " + Subtle("[user]")
+				label += " " + UserTag("[user]")
 			} else {
-				label += " " + Subtle(iconUser)
+				label += " " + UserTag(iconUser)
 			}
 		}
 		if o.ClonedCount > 0 {
