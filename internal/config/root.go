@@ -58,8 +58,8 @@ func ClonedOwnerCounts(root, host string) map[string]int {
 }
 
 // IconsDisabled reports whether Nerd Font icons should be suppressed for
-// repo tags like private/fork and owner tags like org/user, falling back
-// to plain text (e.g. "[private]", "[fork]", "[org]", "[user]").
+// repo tags like private/internal/fork and owner tags like org/user, falling back
+// to plain text (e.g. "[private]", "[internal]", "[fork]", "[org]", "[user]").
 // Controlled by `gh-orz.iconDisabled`; set to "true" for terminals without
 // a Nerd Font installed. Icons are enabled by default.
 func IconsDisabled() bool {

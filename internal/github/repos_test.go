@@ -220,6 +220,39 @@ func TestListReposWithClient_PrivateInfo(t *testing.T) {
 	}
 }
 
+func TestListReposWithClient_VisibilityInfo(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/orgs/my-org/repos", func(w http.ResponseWriter, r *http.Request) {
+		repos := []repo{
+			{Name: "public-repo", Private: false, Visibility: "public"},
+			{Name: "private-repo", Private: true, Visibility: "private"},
+			{Name: "internal-repo", Private: true, Visibility: "internal"},
+			// Responses without the visibility field fall back to the private flag
+			{Name: "legacy-public-repo", Private: false},
+			{Name: "legacy-private-repo", Private: true},
+		}
+		json.NewEncoder(w).Encode(repos)
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+
+	client := newTestClient(t, server)
+	result, err := listReposWithClient(client, "my-org", false)
+	if err != nil {
+		t.Fatalf("listReposWithClient() error: %v", err)
+	}
+
+	want := []string{"public", "private", "internal", "public", "private"}
+	if len(result) != len(want) {
+		t.Fatalf("got %d repos, want %d", len(result), len(want))
+	}
+	for i, w := range want {
+		if result[i].Visibility != w {
+			t.Errorf("result[%d] (%s).Visibility = %q, want %q", i, result[i].Name, result[i].Visibility, w)
+		}
+	}
+}
+
 func TestListReposWithClient_ForkInfo(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/orgs/my-org/repos", func(w http.ResponseWriter, r *http.Request) {

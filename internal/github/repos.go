@@ -12,18 +12,32 @@ type repoOwner struct {
 }
 
 type repo struct {
-	Name     string    `json:"name"`
-	Fork     bool      `json:"fork"`
-	Archived bool      `json:"archived"`
-	Private  bool      `json:"private"`
-	Owner    repoOwner `json:"owner"`
+	Name       string    `json:"name"`
+	Fork       bool      `json:"fork"`
+	Archived   bool      `json:"archived"`
+	Private    bool      `json:"private"`
+	Visibility string    `json:"visibility"`
+	Owner      repoOwner `json:"owner"`
 }
 
 // RepoInfo holds information about a repository.
 type RepoInfo struct {
-	Name    string
-	Fork    bool
-	Private bool
+	Name       string
+	Fork       bool
+	Private    bool
+	Visibility string // "public", "private" or "internal"
+}
+
+// visibility returns the repo's visibility, falling back to the private flag
+// when the API response lacks the visibility field (e.g. older GHES).
+func (r repo) visibility() string {
+	if r.Visibility != "" {
+		return r.Visibility
+	}
+	if r.Private {
+		return "private"
+	}
+	return "public"
 }
 
 // newClient creates a REST client for the given host.
@@ -120,7 +134,7 @@ func listReposWithClient(client *api.RESTClient, owner string, includeArchived b
 		if !includeArchived && r.Archived {
 			continue
 		}
-		result = append(result, RepoInfo{Name: r.Name, Fork: r.Fork, Private: r.Private})
+		result = append(result, RepoInfo{Name: r.Name, Fork: r.Fork, Private: r.Private, Visibility: r.visibility()})
 	}
 	return result, nil
 }
